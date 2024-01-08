@@ -1,4 +1,4 @@
-. .\define.ps1
+. .\utils.ps1
 
 $logPath = Join-Path -Path $logDir -ChildPath ($displayName + "Uninstall.log")
 

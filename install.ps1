@@ -1,4 +1,4 @@
-. .\define.ps1
+. .\utils.ps1
 
 $logPath = Join-Path -Path $logDir -ChildPath ($displayName + "Install.log")
 
@@ -9,7 +9,6 @@ Log "Log started at $(Get-Date)"
 Ensure-Directory $downloadDir
 
 Log "Installation of $displayName beginning..."
-
 
 Log "Checking for previous user-level installations..."
 if ($preInstallRegistryHives -and $preInstallRegistryHives.Length -gt 0) {
@@ -54,7 +53,6 @@ if (!(Is-Installed)) {
             Install-App $fallbackInstallerPath2 $fallbackArgList2
         }
     }
-
 }
 
 Log "Performing final check..."

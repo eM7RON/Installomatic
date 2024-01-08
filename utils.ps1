@@ -1,66 +1,4 @@
-##################################################################################################################################
-##################################################################################################################################                                                                                                                       
-#
-# Intune Win32App Manager
-# 2024 Simon Tucker
-#                                                                                                                                
-##################################################################################################################################
-##################################################################################################################################
-
-################################################
-# NOTE: The following variables should changed #
-################################################
-
-$displayName = "Notepad++"
-# Taken from the registry entry HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
-# this is used to find the app's uninstall string 
-
-$wingetAppID = ""
-# This is used to identify the app in the Winget database.
-
-$installContext = "machine" # machine | user
-
-$installerType = "exe"
-# exe | msi | msixbundle
-# The file extension of the fallback installer used if Winget fails.
-
-$installerArgList = '/q /norestart'
-$uninstallerArgList = '/quiet'
-# Arguments to pass to the fallback installers or uninstaller. The are normally one of the following:
-# /qn | /S | --silent etc... The uninstaller will likely come from the uninstall string.
-
-$fallbackDownloadURL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
-# A URL to fetch the latest version of the app.
-
-$githubRegex = ""
-# If above is for a Github latest release page this regex pattern will match be used to 
-# match the installer 
-
-$testExecutablePath = ''
-# Path to the executable for testing if app is installed.
-
-$testRegistryPaths = @(
-    @{
-        Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64';
-        Keys = @(
-            @{ Key = 'Installed'; Value = 1 },
-            @{ Key = 'Bld'; Value = 0x0000816a }
-            # Add more key-value pairs as needed for X64
-        )
-    }
-    # @{
-    #     Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86';
-    #     Keys = @(
-    #         @{ Key = 'Installed'; Value = 1 },
-    #         @{ Key = 'Bld'; Value = 0x0000816a }
-    #         # Add more key-value pairs as needed for X86
-    #     )
-    # }
-    # Add more path entries as needed
-)
-
-$preInstallRegistryHives = @("HKCU:")
-$uninstallRegistryHives = @("HKLM:", "HKCU:")
+. .\define.ps1
 
 #######################################################
 # NOTE: The following variables should NOT be changed #
@@ -136,7 +74,7 @@ function Ensure-Directory {
 
 function Is-Installed {
 
-    if (($testExecutablePath) -or ($testRegistryPaths -and $testRegistryPaths.Length -gt 0)) {
+    if (($testExecutablePath) -or ($testRegistryItems -and $testRegistryItems.Length -gt 0)) {
     
         $notDetected = 0
         
@@ -144,43 +82,45 @@ function Is-Installed {
             Log "Testing path $testExecutablePath ..."
             if (Test-Path $testExecutablePath) {
                 Log "Detected"
-            } else {
+            } 
+            else {
                 Log "Not detected"
                 $notDetected += 1
             }
         }
-        if ($testRegistryPaths -and $testRegistryPaths.Length -gt 0) {
+        if ($testRegistryItems -and $testRegistryItems.Length -gt 0) {
 
-            foreach ($registryPath in $testRegistryPaths) {
+            foreach ($registryItem in $testRegistryItems) {
                 $properties = $null
                 try {
-                    $properties = Get-ItemProperty -Path $registryPath.Path -ErrorAction Stop
+                    $properties = Get-ItemProperty -Path $registryItem.Path -ErrorAction Stop
                 }
                 catch {
-                    Log "Error: Registry path $($registryPath.Path) does not exist."
+                    Log "Error: Registry path $($registryItem.Path) does not exist."
                     $notDetected += 1
                 }
                 if ($properties) {
-                    foreach ($key in $registryPath.Keys) {
+                    foreach ($key in $registryItem.Keys) {
                         try {
-                            $actualValue = $properties.$($key.Key)
+                            $actualValue = $properties.$($key.Name)
                             $expectedValue = $key.Value
                             
                             if ($actualValue -eq $expectedValue) {
-                                Log "Path: $($registryPath.Path) - The $($key.Key) key matches the expected value of $expectedValue."
-                            } else {
-                                Log "Path: $($registryPath.Path) - The $($key.Key) key does not match the expected value. Expected: $expectedValue, but got: $actualValue"
+                                Log "Path: $($registryItem.Path) - The $($key.Name) key matches the expected value of $expectedValue."
+                            } 
+                            else {
+                                Log "Path: $($registryItem.Path) - The $($key.Name) key does not match the expected value. Expected: $expectedValue, but got: $actualValue"
                                 $notDetected += 1
                             }
-                        } catch {
-                            Log "Error: Registry path key '$($key.Key)' does not exist."
+                        } 
+                        catch {
+                            Log "Error: Registry path key '$($key.Name)' does not exist."
                             $notDetected += 1
                         }
                     }
                 }
             }
         } 
-
         return !($notDetected -gt 0)
     }
     else {
@@ -197,7 +137,6 @@ function Is-Installed {
         return $false
         }
     }
-    
 }
 
 function Get-UninstallStrings {
@@ -224,7 +163,6 @@ function Get-UninstallStrings {
             }
         }
     }
-
     return $uninstallStrings
 }
 
@@ -302,6 +240,28 @@ function Download-File {
     }
 }
 
+function update-Registry ($installRegistryItems) {
+    if (($installRegistryItems -and $installRegistryItems.Length -gt 0)) {
+
+        foreach ($registryItem in $installRegistryItems) {
+
+            if (-not (Test-Path $registryItem.Path)) {
+                New-Item -Path $registryItem.Path -ItemType Directory
+            }
+
+            foreach ($key in $registryItem.Keys) {
+
+                if (-not (Get-ItemProperty -Path $registryItem.Path -Name $key.Name -ErrorAction SilentlyContinue)) {
+                    New-ItemProperty -Path $lockscreenKey -Name $key.Name -Value $key.Value -PropertyType $key.Type -Force
+                } 
+                else {
+                    Set-ItemProperty -Path $lockscreenKey -Name $key.Name -Value $key.Value
+                }
+            }
+        }
+    }
+}
+
 function Install-App {
     param (
         [string] $installerPath,
@@ -371,7 +331,6 @@ function Remove-File {
             break
         }
     }
-
 }
 
 Ensure-Directory $logDir

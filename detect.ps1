@@ -1,4 +1,4 @@
-. .\define.ps1
+. .\utils.ps1
 
 if (Is-Installed) {
     Write-Host "$displayName installation detected" -ForegroundColor Green
