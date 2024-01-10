@@ -1,8 +1,102 @@
-. .\define.ps1
+##################################################################################################################################
+##################################################################################################################################                                                                                                                       
+#
+# Installomatic
+# 2024 Simon Tucker
+#                                                                                                                                
+##################################################################################################################################
+##################################################################################################################################
+
+################################################
+# NOTE: The following variables should be set  #
+################################################
+
+$displayName = "Notepad++"
+# Taken from the registry entry HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*
+# this is used to find the app's uninstall string 
+
+$wingetAppID = "Notepad++.Notepad++"
+# This is used to identify the app in the Winget database.
+
+$installContext = "machine" # machine | user
+
+$installerType = "exe"
+# exe | msi | msixbundle
+# The file extension of the fallback installer used if Winget fails.
+
+$installerArgList = '/q /norestart'
+$uninstallerArgList = '/quiet'
+# Arguments to pass to the fallback installers or uninstaller. The are normally one of the following:
+# /qn | /S | --silent etc... The uninstaller will likely come from the uninstall string.
+
+$fallbackDownloadURL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+# A URL to fetch the latest version of the app.
+
+$githubRegex = ""
+# If above is for a Github latest release page this regex pattern will match be used to 
+# match the installer asset to be downloaded.
+
+$installRegistryItems = @(
+    # @{
+    #     Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SAIIT';
+    #     Keys = @(
+    #         @{ Name = 'Installed'; Value = 1; Type = 'STRING'},
+    #         @{ Name = 'Bld'; Value = 0x0000816a; Type = 'DWORD'}
+    #         # Add more key-value pairs as needed for X64
+    #     )
+    # }
+    # @{
+    #     Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86';
+    #     Keys = @(
+    #         @{ Key = 'Installed'; Value = 1 },
+    #         @{ Key = 'Bld'; Value = 0x0000816a }
+    #         # Add more key-value pairs as needed for X86
+    #     )
+    # }
+    # Add more path entries as needed
+)
+
+
+############ Testing variables ############## 
+
+$testExecutablePath = ''
+# Path to the executable for testing if app is installed.
+
+$testRegistryItems = @(
+    @{
+        Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64';
+        Keys = @(
+            @{ Name = 'Installed'; Value = 1},
+            @{ Name = 'Bld'; Value = 0x0000816a}
+            # Add more key-value pairs as needed for X64
+        )
+    }
+    # @{
+    #     Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86';
+    #     Keys = @(
+    #         @{ Name = 'Installed'; Value = 1 },
+    #         @{ Name = 'Bld'; Value = 0x0000816a }
+    #         # Add more key-value pairs as needed for X86
+    #     )
+    # }
+    # Add more path entries as needed
+)
+
+$preInstallRegistryHives = @("HKCU:")
+$uninstallRegistryHives = @("HKLM:", "HKCU:")
 
 #######################################################
 # NOTE: The following variables should NOT be changed #
 #######################################################
+
+param (
+    [string] $mode
+)
+
+if ($mode) {
+    $mode = $mode.ToLower()
+    $mode = $mode.Trim()
+}
 
 if ($fallbackDownloadURL -Match "github") {
     $fallbackDownloadURL = (Invoke-WebRequest -Uri $fallbackDownloadURL -UseBasicParsing).Content | ConvertFrom-Json |
@@ -59,7 +153,7 @@ function Log {
     Write-Host $message -ForegroundColor $color
 }
 
-function Ensure-Directory {
+function Ensure-Path {
     param (
         [string] $dir
     )
@@ -75,53 +169,39 @@ function Ensure-Directory {
 function Is-Installed {
 
     if (($testExecutablePath) -or ($testRegistryItems -and $testRegistryItems.Length -gt 0)) {
-    
-        $notDetected = 0
         
         if ($testExecutablePath) {
             Log "Testing path $testExecutablePath ..."
-            if (Test-Path $testExecutablePath) {
-                Log "Detected"
-            } 
-            else {
-                Log "Not detected"
-                $notDetected += 1
+            if (!(Test-Path $testExecutablePath)) {
+                Log "Not detected" Red
+                return $false
             }
         }
         if ($testRegistryItems -and $testRegistryItems.Length -gt 0) {
-
-            foreach ($registryItem in $testRegistryItems) {
-                $properties = $null
-                try {
-                    $properties = Get-ItemProperty -Path $registryItem.Path -ErrorAction Stop
-                }
-                catch {
-                    Log "Error: Registry path $($registryItem.Path) does not exist."
-                    $notDetected += 1
-                }
-                if ($properties) {
-                    foreach ($key in $registryItem.Keys) {
+            foreach ($item in $testRegistryItems) {
+                if (Test-Path $item.Path) {
+                    foreach ($key in $item.Keys) {
+                        Log "Testing path: $($item.Path), key: $($key.Name), value: $($key.Value)"
                         try {
-                            $actualValue = $properties.$($key.Name)
-                            $expectedValue = $key.Value
-                            
-                            if ($actualValue -eq $expectedValue) {
-                                Log "Path: $($registryItem.Path) - The $($key.Name) key matches the expected value of $expectedValue."
-                            } 
-                            else {
-                                Log "Path: $($registryItem.Path) - The $($key.Name) key does not match the expected value. Expected: $expectedValue, but got: $actualValue"
-                                $notDetected += 1
+                            $value = Get-ItemProperty -Path $item.Path -Name $key.Name -ErrorAction Stop
+                            "Testing: $($value.$keyName) -ne $($key.Value))"
+                            if ($value.$keyName -ne $key.Value) {
+                                "Not equal"
+                                return $false
                             }
                         } 
                         catch {
-                            Log "Error: Registry path key '$($key.Name)' does not exist."
-                            $notDetected += 1
+                            Log "Error: $_"
+                            return $false
                         }
                     }
                 }
+                else {
+                    return $false
+                }
             }
-        } 
-        return !($notDetected -gt 0)
+        }
+        return $true
     }
     else {
         $path32bit = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
@@ -189,7 +269,8 @@ function Process-UninstallString {
         $quoteIndex = $uninstallString.IndexOf('"', 1)
         $executable = $uninstallString.Substring(0, $quoteIndex + 1)
         $arguments = $uninstallString.Substring($quoteIndex + 2).Trim()
-    } else {
+    } 
+    else {
         $fragments = $uninstallString -split ' ', 2
         $executable = $fragments[0]
         $arguments = $fragments[1]
@@ -240,7 +321,7 @@ function Download-File {
     }
 }
 
-function update-Registry ($installRegistryItems) {
+function Update-Registry ($installRegistryItems) {
     if (($installRegistryItems -and $installRegistryItems.Length -gt 0)) {
 
         foreach ($registryItem in $installRegistryItems) {
@@ -333,5 +414,148 @@ function Remove-File {
     }
 }
 
-Ensure-Directory $logDir
-Ensure-Directory $downloadDir
+Ensure-Path $logDir
+Ensure-Path $downloadDir
+
+if (! ($mode)) {
+    # The script is being run directly
+    if (Is-Installed) {
+        Write-Host "$displayName installation detected" -ForegroundColor Green
+        Exit 0
+    }
+    else {
+        Write-Host "$displayName installation NOT detected" -ForegroundColor Red
+        Exit 1
+    }
+}
+elseif ($mode -eq 'install') {
+
+    $logPath = Join-Path -Path $logDir -ChildPath ($displayName + "Install.log")
+
+    # Create a new, empty log file or clear the existing one
+    "" | Out-File -FilePath $logPath
+    Log "Log started at $(Get-Date)"
+
+    Ensure-Path $downloadDir
+
+    Log "Installation of $displayName beginning..."
+
+    Log "Checking for previous user-level installations..."
+    if ($preInstallRegistryHives -and $preInstallRegistryHives.Length -gt 0) {
+        $uninstallString = Get-UninstallStrings $preInstallRegistryHives
+
+        if ($uninstallStrings -and $uninstallStrings.Length -gt 0) {
+
+            foreach ($uninstallString in $uninstallStrings) {
+
+                Log "Previous install found $uninstallString"
+                
+                $processedStrings = (Process-UninstallString $uninstallString $preUninstallerArgList)
+                $executable = $processedStrings[0]
+                $arguments = $processedStrings[1]
+                Uninstall-App $executable $arguments
+
+                if (!(Is-Installed)) {
+                    break
+                }
+            }
+        } 
+        else {
+            Log "No previous install found"
+        }
+    }
+    if (!(Is-Installed)) {
+        
+        if ($wingetAppID) {
+            Lof "Attempting to install via Winget..."
+            Install-App $wingetPath $wingetInstallArgList
+        }
+
+        if (!(Is-Installed)) {
+            Log "Attempting to install from 1st fallback option"
+            Download-File $fallbackDownloadURL $downloadPath
+            Install-App $fallbackInstallerPath1 $fallbackArgList1
+            Remove-File $downloadPath
+
+            if (!(Is-Installed)) {
+                Log "Attempting to install from second fallback option"
+                Install-App $fallbackInstallerPath2 $fallbackArgList2
+            }
+        }
+
+        if (Is-Installed) {
+            Update-Registry $installRegistryItems
+        }
+    }
+
+    Log "Performing final check..."
+    if (Is-Installed) {
+        Log "Install detected" Green
+        Log "Exit code 0"
+        Exit 0
+    } 
+    else {
+        Log "Installation not detected" Red
+        Log "Installation failed" Red
+        Log "Exit code 1"
+        Exit 1
+    }
+} 
+elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
+
+    $logPath = Join-Path -Path $logDir -ChildPath ($displayName + "Uninstall.log")
+
+    # Create a new, empty log file or clear the existing one
+    "" | Out-File -FilePath $logPath
+    Log "Log started at $(Get-Date)"
+
+    Log "Uninstall of $displayName starting..."
+
+    if (Is-Installed) {
+        
+        if ($wingetAppID) {
+            Log "Attempting to install via Winget..."
+            Uninstall-App $wingetPath $wingetUninstallArgList
+        }
+        
+        if (Is-Installed) {
+            Log "Attempting to uninstall using uninstall string..."
+            $uninstallStrings = Get-UninstallStrings $uninstallRegistryHives
+
+            if ($uninstallStrings -and $uninstallStrings.Length -gt 0) {
+                foreach ($uninstallString in $uninstallStrings) {
+                    $processedStrings = (Process-UninstallString $uninstallString $uninstallerArgList)
+                    $executable = $processedStrings[0]
+                    $arguments = $processedStrings[1]
+                    Uninstall-App $executable $arguments
+
+                    if (!(Is-Installed)) {
+                        break
+                    }
+                }
+            } 
+            else {
+                Log "No uninstall strings found"
+            }
+
+        }
+
+    }
+
+    Log "Performing final check..."
+    if (!(Is-Installed)) {
+        Log "Installation not detected" Green
+        Log "Exit code 0"
+        Exit 0
+    } 
+    else {
+        Log "Installation detected" Red
+        Log "Uninstallation failed" Red
+        Log "Exit code 1"
+        Exit 1
+    }
+}
+else {
+    Write-Host 'Unsupported mode' -ForegroundColor Red
+    Exit 1
+}

@@ -2,7 +2,7 @@ param (
     [string] $Script
 )
 
-. .\.env
+. .\env
 
 $latestReleaseURL = "https://europe-west2-saiit-operations.cloudfunctions.net/IntuneWin32AppManagement"
 $zipFile = "IntuneWin32AppManager.zip"
@@ -23,11 +23,23 @@ $extractedFolderItems = Get-ChildItem -Path $tempDir.FullName
 # Assuming there's only one folder and it's not known, we just take the first item
 $extractedFolder = $extractedFolderItems | Where-Object { $_.PSIsContainer } | Select-Object -First 1
 
-# Move the contents of the extracted folder to the current directory
-Get-ChildItem -Path $extractedFolder.FullName -Recurse | Move-Item -Destination $PWD
+# Define the list of required files
+$requiredFiles = @("install.ps1", "uninstall.ps1", "detect.ps1", "utils.ps1")
+
+# Move the specified files from the extracted folder to the current directory
+$requiredFiles | ForEach-Object {
+    $filePath = Join-Path -Path $extractedFolder.FullName -ChildPath $_
+    if (Test-Path $filePath) {
+        Move-Item -Path $filePath -Destination $PWD
+    } else {
+        Write-Host "File not found: $_"
+    }
+}
 
 # Clean up: Remove the temporary extracted folder and the ZIP file if no longer needed
 Remove-Item -Path $tempDir.FullName -Recurse -Force
 # Optional: Remove the ZIP file if it's no longer needed
 # Remove-Item -Path $zipFile -Force
+
+# Start-Process command as in your original script (assuming $Script variable is defined elsewhere)
 Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($Script)`"" -Wait
