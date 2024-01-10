@@ -7,6 +7,15 @@
 ##################################################################################################################################
 ##################################################################################################################################
 
+param (
+    [string] $mode
+)
+
+if ($mode) {
+    $mode = $mode.ToLower()
+    $mode = $mode.Trim()
+}
+
 ################################################
 # NOTE: The following variables should be set  #
 ################################################
@@ -24,15 +33,15 @@ $installerType = "exe"
 # exe | msi | msixbundle
 # The file extension of the fallback installer used if Winget fails.
 
-$installerArgList = '/q /norestart'
-$uninstallerArgList = '/quiet'
+$installerArgList = '/S'
+$uninstallerArgList = '/S'
 # Arguments to pass to the fallback installers or uninstaller. The are normally one of the following:
 # /qn | /S | --silent etc... The uninstaller will likely come from the uninstall string.
 
-$fallbackDownloadURL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+$latestVersionUrl = "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
 # A URL to fetch the latest version of the app.
 
-$githubRegex = ""
+$githubAssetRegex = ".x64.exe$"
 # If above is for a Github latest release page this regex pattern will match be used to 
 # match the installer asset to be downloaded.
 
@@ -59,18 +68,18 @@ $installRegistryItems = @(
 
 ############ Testing variables ############## 
 
-$testExecutablePath = ''
+$testExecutablePath = 'C:\Program Files\Notepad++\notepad++.exe'
 # Path to the executable for testing if app is installed.
 
 $testRegistryItems = @(
-    @{
-        Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64';
-        Keys = @(
-            @{ Name = 'Installed'; Value = 1},
-            @{ Name = 'Bld'; Value = 0x0000816a}
-            # Add more key-value pairs as needed for X64
-        )
-    }
+    # @{
+    #     Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X64';
+    #     Keys = @(
+    #         @{ Name = 'Installed'; Value = 1},
+    #         @{ Name = 'Bld'; Value = 0x0000816a}
+    #         # Add more key-value pairs as needed for X64
+    #     )
+    # }
     # @{
     #     Path = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\X86';
     #     Keys = @(
@@ -88,22 +97,6 @@ $uninstallRegistryHives = @("HKLM:", "HKCU:")
 #######################################################
 # NOTE: The following variables should NOT be changed #
 #######################################################
-
-param (
-    [string] $mode
-)
-
-if ($mode) {
-    $mode = $mode.ToLower()
-    $mode = $mode.Trim()
-}
-
-if ($fallbackDownloadURL -Match "github") {
-    $fallbackDownloadURL = (Invoke-WebRequest -Uri $fallbackDownloadURL -UseBasicParsing).Content | ConvertFrom-Json |
-    Select-Object -ExpandProperty "assets" |
-    Where-Object "browser_download_url" -Match $githubRegex |
-    Select-Object -ExpandProperty "browser_download_url"
-}
 
 $installerFilename = "$displayName.$installerType"
 # If Winget fails we will attempt to download the latest installer ourselves. This is what the 
@@ -168,16 +161,41 @@ function Ensure-Path {
 
 function Is-Installed {
 
+    if ($mode) {
+        if ($mode -eq 'install') {
+            $detectedColor = 'Green'
+            $notDetectedColor = 'Red'
+        }
+        elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
+            $detectedColor = 'Red'
+            $notDetectedColor = 'Green'
+        } 
+        else {
+            Log "Unknown $mode passed to Is-Install"
+            $detectedColor = 'White'
+            $notDetectedColor = 'White'
+        }
+
+    } else {
+        Log "No mode passed to Is-Install"
+        $detectedColor = 'Green'
+        $notDetectedColor = 'Red'
+    }
+
     if (($testExecutablePath) -or ($testRegistryItems -and $testRegistryItems.Length -gt 0)) {
         
         if ($testExecutablePath) {
-            Log "Testing path $testExecutablePath ..."
+            Log "Testing path $testExecutablePath"
             if (!(Test-Path $testExecutablePath)) {
-                Log "Not detected" Red
+                Log "testExecutablePath: $testExecutablePath NOT detected" $notDetectedColor
                 return $false
             }
         }
+        else {
+            Log "No testExecutablePath provided"
+        }
         if ($testRegistryItems -and $testRegistryItems.Length -gt 0) {
+            Log "Testing testRegistryItems"
             foreach ($item in $testRegistryItems) {
                 if (Test-Path $item.Path) {
                     foreach ($key in $item.Keys) {
@@ -186,24 +204,30 @@ function Is-Installed {
                             $value = Get-ItemProperty -Path $item.Path -Name $key.Name -ErrorAction Stop
                             "Testing: $($value.$keyName) -ne $($key.Value))"
                             if ($value.$keyName -ne $key.Value) {
-                                "Not equal"
+                                Log "Not equal" $notDetectedColor
                                 return $false
                             }
                         } 
                         catch {
-                            Log "Error: $_"
+                            Log "Error: $_" $notDetectedColor
                             return $false
                         }
                     }
                 }
                 else {
+                    Log "Path $item.Path does Not exist" $notDetectedColor
                     return $false
                 }
             }
+        } 
+        else {
+            Log "No testRegistryItems provided"
         }
+        Log "Detected" $detectedColor
         return $true
     }
     else {
+        Log "Searching for registry entry..."
         $path32bit = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
         $path64bit = "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
 
@@ -211,10 +235,10 @@ function Is-Installed {
 
         foreach ($appRegistryEntry in $installedApps) {
             if ($appRegistryEntry.DisplayName -like "*$displayName*") {
+                Log "Detected registry entry: $appRegistryEntry" $detectedColor
                 return $true
             }
-
-        return $false
+        Log "No registry entry detected" $notDetectedColor
         }
     }
 }
@@ -286,19 +310,19 @@ function Process-UninstallString {
 
 function Download-File {
     param (
-        [string] $fallbackDownloadURL,
+        [string] $downloadUrl,
         [string] $downloadPath
     )
-    Log "Downloading from $fallbackDownloadURL to $downloadPath"
+    Log "Downloading from $downloadUrl to $downloadPath"
     for ($i = 0; $i -lt 2; $i++) {
 
         Log "Attempt $(($i+1))..."
 
         if ($i -lt 2) {
-            $downloadCommand = "Start-BitsTransfer -Source '$fallbackDownloadURL' -Destination '$downloadPath'"
+            $downloadCommand = "Start-BitsTransfer -Source '$downloadUrl' -Destination '$downloadPath'"
         }
         else {
-            $downloadCommand = "Invoke-WebRequest -Uri '$fallbackDownloadURL' -OutFile '$downloadPath' -UseBasicParsing"
+            $downloadCommand = "Invoke-WebRequest -Uri '$downloadUrl' -OutFile '$downloadPath' -UseBasicParsing"
         }
         Log "Download command: $downloadCommand"
 
@@ -467,13 +491,21 @@ elseif ($mode -eq 'install') {
     if (!(Is-Installed)) {
         
         if ($wingetAppID) {
-            Lof "Attempting to install via Winget..."
+            Log "Attempting to install via Winget..."
             Install-App $wingetPath $wingetInstallArgList
         }
 
         if (!(Is-Installed)) {
             Log "Attempting to install from 1st fallback option"
-            Download-File $fallbackDownloadURL $downloadPath
+
+            if ($latestVersionUrl -Match "github") {
+                $latestVersionUrl = (Invoke-WebRequest -Uri $latestVersionUrl -UseBasicParsing).Content | ConvertFrom-Json |
+                Select-Object -ExpandProperty "assets" |
+                Where-Object "browser_download_url" -Match $githubAssetRegex |
+                Select-Object -ExpandProperty "browser_download_url"
+            }
+
+            Download-File $latestVersionUrl $downloadPath
             Install-App $fallbackInstallerPath1 $fallbackArgList1
             Remove-File $downloadPath
 
@@ -535,7 +567,7 @@ elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
                 }
             } 
             else {
-                Log "No uninstall strings found"
+                Log "No uninstall strings found" Red
             }
 
         }
@@ -544,14 +576,11 @@ elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
 
     Log "Performing final check..."
     if (!(Is-Installed)) {
-        Log "Installation not detected" Green
-        Log "Exit code 0"
+        Log "$displayName NOT detected" Green
         Exit 0
     } 
     else {
-        Log "Installation detected" Red
-        Log "Uninstallation failed" Red
-        Log "Exit code 1"
+        Log "$displayName detected" Red
         Exit 1
     }
 }
