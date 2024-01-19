@@ -47,7 +47,7 @@ $githubAssetRegex = ".x64.exe$"
 
 $installRegistryItems = @(
     # @{
-    #     Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\SAIIT';
+    #     Path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WhileTech';
     #     Keys = @(
     #         @{ Name = 'Installed'; Value = 1; Type = 'STRING'},
     #         @{ Name = 'Bld'; Value = 0x0000816a; Type = 'DWORD'}
@@ -64,7 +64,6 @@ $installRegistryItems = @(
     # }
     # Add more path entries as needed
 )
-
 
 ############ Testing variables ############## 
 
@@ -102,13 +101,13 @@ $installerFilename = "$displayName.$installerType"
 # If Winget fails we will attempt to download the latest installer ourselves. This is what the 
 # installer file will be named.
 
-$downloadDir = "C:\ProgramData\SAIIT\temp"
+$downloadDir = "C:\ProgramData\WhileTech\temp"
 # URL to download the latest MSI installer as 1st fallback option.
 
 $downloadPath = Join-Path -Path $downloadDir -ChildPath $installerFilename
 # When we download the fallback installer this will be its full path.
 
-$logDir = "C:\ProgramData\SAIIT\logs"
+$logDir = "C:\ProgramData\WhileTech\logs"
 # The directory where logs are stored
 
 $wingetPath = (Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*_x64__8wekyb3d8bbwe\winget.exe")[-1].Path
@@ -462,10 +461,10 @@ elseif ($mode -eq 'install') {
 
     Ensure-Path $downloadDir
 
-    Log "Installation of $displayName beginning..."
+    Log "Installation of $displayName starting..."
 
-    Log "Checking for previous user-level installations..."
     if ($preInstallRegistryHives -and $preInstallRegistryHives.Length -gt 0) {
+        Log "Checking for previous user-level installations..."
         $uninstallString = Get-UninstallStrings $preInstallRegistryHives
 
         if ($uninstallStrings -and $uninstallStrings.Length -gt 0) {

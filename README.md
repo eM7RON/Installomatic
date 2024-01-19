@@ -1,1 +1,1 @@
-# IntuneWin32AppManagment
+# Installomatic
