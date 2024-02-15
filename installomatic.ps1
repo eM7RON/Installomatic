@@ -198,15 +198,16 @@ function Is-Installed {
             foreach ($item in $testRegistryItems) {
                 if (Test-Path $item.Path) {
                     foreach ($key in $item.Keys) {
-                        Log "Testing path: $($item.Path), key: $($key.Name), value: $($key.Value)"
+                        Log "Testing Path: $($item.Path), Key: $($key.Name), Value: $($key.Value)"
                         try {
-                            $value = Get-ItemProperty -Path $item.Path -Name $key.Name -ErrorAction Stop
-                            "Testing: $($value.$keyName) -ne $($key.Value))"
-                            if ($value.$keyName -ne $key.Value) {
+                            $result = Get-ItemProperty -Path $item.Path -Name $key.Name -ErrorAction Stop
+                            $keyName = $key.Name
+                            Log "Testing: $($result.$keyName) -ne $($key.Value))"
+                            if ($result.$keyName -ne $key.Value) {
                                 Log "Not equal" $notDetectedColor
                                 return $false
-                            }
-                        } 
+                            } 
+                        }
                         catch {
                             Log "Error: $_" $notDetectedColor
                             return $false
@@ -214,7 +215,7 @@ function Is-Installed {
                     }
                 }
                 else {
-                    Log "Path $item.Path does Not exist" $notDetectedColor
+                    Log "Path ${item.Path} does Not exist" $notDetectedColor
                     return $false
                 }
             }
@@ -222,7 +223,7 @@ function Is-Installed {
         else {
             Log "No testRegistryItems provided"
         }
-        Log "Detected" $detectedColor
+        Log 'All test registry keys passed' Green
         return $true
     }
     else {
@@ -356,10 +357,10 @@ function Update-Registry ($installRegistryItems) {
             foreach ($key in $registryItem.Keys) {
 
                 if (-not (Get-ItemProperty -Path $registryItem.Path -Name $key.Name -ErrorAction SilentlyContinue)) {
-                    New-ItemProperty -Path $lockscreenKey -Name $key.Name -Value $key.Value -PropertyType $key.Type -Force
+                    New-ItemProperty -Path $registryItem.Path -Name $key.Name -Value $key.Value -PropertyType $key.Type -Force *> $null
                 } 
                 else {
-                    Set-ItemProperty -Path $lockscreenKey -Name $key.Name -Value $key.Value
+                    Set-ItemProperty -Path $registryItem.Path -Name $key.Name -Value $key.Value *> $null
                 }
             }
         }
