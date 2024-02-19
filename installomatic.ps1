@@ -140,7 +140,7 @@ function Log {
     }
     
     if ($logPath) {
-        $message | Out-File -FilePath $logPath -Append
+        $message | Out-File -FilePath $logPath
     }
     Write-Host $message -ForegroundColor $color
 }

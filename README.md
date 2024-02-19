@@ -9,7 +9,7 @@ powershell -ExecutionPolicy Bypass -File .\installomatic.ps1 install
 Uninstall command:  
 powershell -ExecutionPolicy Bypass -File .\installomatic.ps1 remove  
 
-If the script is run with no arguments it works as a detection script (exiting 0 if the app IS detected and 1 if NOT detcted).
+If the script is run with no arguments it works as a detection script (exiting 0 if the app IS detected and 1 if NOT detected).
 
 The script can install apps via 3 different methods:
 
