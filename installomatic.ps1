@@ -27,7 +27,7 @@ $displayName = "Notepad++"
 $wingetAppID = "Notepad++.Notepad++"
 # This is used to identify the app in the Winget database.
 
-$installContext = "machine" # machine | user
+$installContext = "machine" # machine | user context in which to install
 
 $installerType = "exe"
 # exe | msi | msixbundle
