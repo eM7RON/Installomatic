@@ -184,7 +184,14 @@ function Is-Installed {
     if (($testExecutablePath) -or ($testRegistryItems -and $testRegistryItems.Length -gt 0)) {
         
         if ($testExecutablePath) {
-            Log "Testing path $testExecutablePath"
+            Log "Testing path $testExecutablePath..."
+            try {
+                testExecutablePath=(Resolve-Path $testExecutablePath)[-1].Path
+            }
+            catch {
+                Log "testExecutablePath: $testExecutablePath NOT detected" $notDetectedColor
+                return $false
+            }
             if (!(Test-Path $testExecutablePath)) {
                 Log "testExecutablePath: $testExecutablePath NOT detected" $notDetectedColor
                 return $false
