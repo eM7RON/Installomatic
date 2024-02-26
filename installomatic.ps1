@@ -223,7 +223,7 @@ function Is-Installed {
         else {
             Log "No testRegistryItems provided"
         }
-        Log 'All test registry keys passed' Green
+        Log 'All detecttion methods passed' $detectedColor
         return $true
     }
     else {
