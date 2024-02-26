@@ -184,16 +184,18 @@ function Is-Installed {
     if (($testExecutablePath) -or ($testRegistryItems -and $testRegistryItems.Length -gt 0)) {
         
         if ($testExecutablePath) {
-            Log "Testing path $testExecutablePath..."
+            Log "Resolving path $testExecutablePath..."
             try {
-                testExecutablePath=(Resolve-Path $testExecutablePath)[-1].Path
+                $testExecutablePath=(Resolve-Path $testExecutablePath)[-1].Path
             }
             catch {
-                Log "testExecutablePath: $testExecutablePath NOT detected" $notDetectedColor
+                Log 'Unable to resolve path' $notDetectedColor
+                Log "$testExecutablePath NOT detected" $notDetectedColor
                 return $false
             }
+            Log "Testing path $testExecutablePath..."
             if (!(Test-Path $testExecutablePath)) {
-                Log "testExecutablePath: $testExecutablePath NOT detected" $notDetectedColor
+                Log "$testExecutablePath NOT detected" $notDetectedColor
                 return $false
             }
         }
@@ -230,7 +232,7 @@ function Is-Installed {
         else {
             Log "No testRegistryItems provided"
         }
-        Log 'All detection methods passed' $detectedColor
+        Log 'All detection methods positive' $detectedColor
         return $true
     }
     else {
@@ -303,7 +305,7 @@ function Process-UninstallString {
     } 
     else {
         $fragments = $uninstallString -split ' '
-        $executable = $fragments[0..($fragments.Length - 2)]
+        $executable = $fragments[0..($fragments.Length - 2)] -join ' '
         $arguments = $fragments[-1]
     }
 
@@ -482,7 +484,7 @@ elseif ($mode -eq 'install') {
                 Log "Previous install found $uninstallString"
                 
                 $processedStrings = (Process-UninstallString $uninstallString $preUninstallerArgList)
-                $executable = $processedStrings[0]
+                $executable = $processedStrings[0] -join ''
                 $arguments = $processedStrings[1]
                 Uninstall-App $executable $arguments
 
@@ -549,10 +551,9 @@ elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
     Log "Log started at $(Get-Date)"
 
     Log "Uninstall of $displayName starting..."
-
     if (Is-Installed) {
         
-        if ($wingetAppID) {
+        if ($wingetAppID -and $wingetAppID -ne "Google.GoogleDrive") {
             Log "Attempting to install via Winget..."
             Uninstall-App $wingetPath $wingetUninstallArgList
         }
