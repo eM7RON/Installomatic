@@ -230,7 +230,7 @@ function Is-Installed {
         else {
             Log "No testRegistryItems provided"
         }
-        Log 'All detecttion methods passed' $detectedColor
+        Log 'All detection methods passed' $detectedColor
         return $true
     }
     else {
