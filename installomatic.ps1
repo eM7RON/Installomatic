@@ -97,7 +97,7 @@ $uninstallRegistryHives = @("HKLM:", "HKCU:")
 # NOTE: The following variables should NOT be changed #
 #######################################################
 
-$installerFilename = "$displayName.$installerType"
+$installerFilename = "$displayName.$installerType" -Replace ' ', '' 
 # If Winget fails we will attempt to download the latest installer ourselves. This is what the 
 # installer file will be named.
 
@@ -186,7 +186,7 @@ function Is-Installed {
         if ($testExecutablePath) {
             Log "Resolving path $testExecutablePath..."
             try {
-                $testExecutablePath=(Resolve-Path $testExecutablePath)[-1].Path
+                $testExecutablePath=(Resolve-Path $testExecutablePath -ErrorAction SilentlyContinue)[-1].Path
             }
             catch {
                 Log 'Unable to resolve path' $notDetectedColor
