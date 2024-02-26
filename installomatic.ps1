@@ -302,9 +302,9 @@ function Process-UninstallString {
         $arguments = $uninstallString.Substring($quoteIndex + 2).Trim()
     } 
     else {
-        $fragments = $uninstallString -split ' ', 2
-        $executable = $fragments[0]
-        $arguments = $fragments[1]
+        $fragments = $uninstallString -split ' '
+        $executable = $fragments[0..($fragments.Length - 2)]
+        $arguments = $fragments[-1]
     }
 
     $executable = $executable -replace '"', ''
