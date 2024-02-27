@@ -212,8 +212,8 @@ function Is-Installed {
                         try {
                             $result = Get-ItemProperty -Path $item.Path -Name $key.Name -ErrorAction Stop
                             $keyName = $key.Name
-                            Log "Testing: $($result.$keyName) -ne $($key.Value))"
-                            if ($result.$keyName -ne $key.Value) {
+                            Log "Testing: $($result."$($key.Name)") -ne $($key.Value))"
+                            if ($result."$($key.Name)" -ne $key.Value) {
                                 Log "Not equal" $notDetectedColor
                                 return $false
                             } 
