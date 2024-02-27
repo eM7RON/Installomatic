@@ -198,6 +198,7 @@ function Is-Installed {
                 Log "$testExecutablePath NOT detected" $notDetectedColor
                 return $false
             }
+            Log "Test for executable positive" $detectedColor
         }
         else {
             Log "No testExecutablePath provided"
@@ -227,7 +228,8 @@ function Is-Installed {
                     Log "Path ${item.Path} does Not exist" $notDetectedColor
                     return $false
                 }
-            }
+            } 
+            Log "Test for registry items positive" $detectedColor
         } 
         else {
             Log "No testRegistryItems provided"
