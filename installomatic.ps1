@@ -140,7 +140,7 @@ function Log {
     }
     
     if ($logPath) {
-        $message | Out-File -FilePath $logPath
+        $message | Out-File -FilePath $logPath -Append
     }
     Write-Host $message -ForegroundColor $color
 }
@@ -193,7 +193,7 @@ function Is-Installed {
                 Log "$testExecutablePath NOT detected" $notDetectedColor
                 return $false
             }
-            Log "Testing path $testExecutablePath..."
+            Log "Testing executable path: $testExecutablePath..."
             if (!(Test-Path $testExecutablePath)) {
                 Log "$testExecutablePath NOT detected" $notDetectedColor
                 return $false
@@ -463,7 +463,9 @@ if (! ($mode)) {
 }
 elseif ($mode -eq 'install') {
 
-    $logPath = Join-Path -Path $logDir -ChildPath ($displayName + "Install.log")
+    $logFilename = ($displayName + "Install.log") -Replace ' ', ''
+    $logPath = Join-Path -Path $logDir -ChildPath $logFilename
+    New-Item $logPath -Force
 
     # Create a new, empty log file or clear the existing one
     "" | Out-File -FilePath $logPath
@@ -532,19 +534,19 @@ elseif ($mode -eq 'install') {
     Log "Performing final check..."
     if (Is-Installed) {
         Log "Install detected" Green
-        Log "Exit code 0"
         Exit 0
-    } 
+    }
     else {
         Log "Installation not detected" Red
         Log "Installation failed" Red
-        Log "Exit code 1"
         Exit 1
     }
 } 
 elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
 
-    $logPath = Join-Path -Path $logDir -ChildPath ($displayName + "Uninstall.log")
+    $logFilename = ($displayName + "Remove.log") -Replace ' ', ''
+    $logPath = Join-Path -Path $logDir -ChildPath $logFilename
+    New-Item $logPath -Force
 
     # Create a new, empty log file or clear the existing one
     "" | Out-File -FilePath $logPath
@@ -577,9 +579,7 @@ elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
             else {
                 Log "No uninstall strings found" Red
             }
-
         }
-
     }
 
     Log "Performing final check..."
