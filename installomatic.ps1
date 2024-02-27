@@ -468,9 +468,6 @@ elseif ($mode -eq 'install') {
     $logFilename = ($displayName + "Install.log") -Replace ' ', ''
     $logPath = Join-Path -Path $logDir -ChildPath $logFilename
     New-Item $logPath -Force
-
-    # Create a new, empty log file or clear the existing one
-    "" | Out-File -FilePath $logPath
     Log "Log started at $(Get-Date)"
 
     Ensure-Path $downloadDir
@@ -508,7 +505,7 @@ elseif ($mode -eq 'install') {
             Install-App $wingetPath $wingetInstallArgList
         }
 
-        if (!(Is-Installed)) {
+        if (!(Is-Installed) -And ($latestVersionUrl)) {
             Log "Attempting to install from 1st fallback option"
 
             if ($latestVersionUrl -Match "github") {
@@ -521,11 +518,11 @@ elseif ($mode -eq 'install') {
             Download-File $latestVersionUrl $downloadPath
             Install-App $fallbackInstallerPath1 $fallbackArgList1
             Remove-File $downloadPath
+        }
 
-            if (!(Is-Installed)) {
-                Log "Attempting to install from second fallback option"
-                Install-App $fallbackInstallerPath2 $fallbackArgList2
-            }
+        if (!(Is-Installed)) {
+            Log "Attempting to install from second fallback option"
+            Install-App $fallbackInstallerPath2 $fallbackArgList2
         }
 
         if (Is-Installed) {
@@ -549,9 +546,6 @@ elseif (($mode -eq 'uninstall') -or ($mode -eq 'remove')) {
     $logFilename = ($displayName + "Remove.log") -Replace ' ', ''
     $logPath = Join-Path -Path $logDir -ChildPath $logFilename
     New-Item $logPath -Force
-
-    # Create a new, empty log file or clear the existing one
-    "" | Out-File -FilePath $logPath
     Log "Log started at $(Get-Date)"
 
     Log "Uninstall of $displayName starting..."
