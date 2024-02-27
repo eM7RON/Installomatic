@@ -249,8 +249,8 @@ function Is-Installed {
                 Log "Detected registry entry: $appRegistryEntry" $detectedColor
                 return $true
             }
-        Log "No registry entry detected for: $path32bit, $path64bit: " $notDetectedColor
         }
+        Log "No registry entry detected for: $path32bit, $path64bit" $notDetectedColor
     }
 }
 
