@@ -249,7 +249,7 @@ function Is-Installed {
                 Log "Detected registry entry: $appRegistryEntry" $detectedColor
                 return $true
             }
-        Log "No registry entry detected" $notDetectedColor
+        Log "No registry entry detected for: $path32bit, $path64bit: " $notDetectedColor
         }
     }
 }
@@ -392,7 +392,7 @@ function Install-App {
         catch {
             Log "Error: $_" Red
         }
-        Start-Sleep -seconds 7
+        Start-Sleep -seconds 15
         if (Is-Installed) {
             Log "Install successful" Green
             break
